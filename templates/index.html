@@ -2,40 +2,105 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>File Upload and Actions</title>
+    <title>EPUB C2PA Tool</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 2rem;
+            background-color: #f5f5f5;
         }
         .container {
-            max-width: 500px;
+            max-width: 800px;
             margin: auto;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        input[type="file"], button {
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        input[type="file"] {
             display: block;
-            margin-top: 1rem;
+            margin: 1rem 0;
+            padding: 0.5rem;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        button {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button[name="action"][value="verify"] {
+            background-color: #28a745;
+            color: white;
+        }
+        button[name="action"][value="verify"]:hover {
+            background-color: #218838;
+        }
+        button[name="action"][value="sign"] {
+            background-color: #007bff;
+            color: white;
+        }
+        button[name="action"][value="sign"]:hover {
+            background-color: #0056b3;
+        }
+        button[name="action"][value="manifest"] {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        button[name="action"][value="manifest"]:hover {
+            background-color: #e0a800;
         }
         .result {
             margin-top: 2rem;
             padding: 1rem;
-            background-color: #f0f0f0;
+            background-color: #f8f9fa;
             border-left: 5px solid #007BFF;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .filename {
+            margin: 1rem 0;
+            padding: 0.5rem;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Upload a File</h1>
+        <h1>EPUB C2PA Tool</h1>
         <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <button type="submit" name="action" value="verify">Verify File</button>
-            <button type="submit" name="action" value="sign">Sign File</button>
-            <button type="submit" name="action" value="manifest">See Manifest</button>
+            <input type="file" name="file" accept=".epub" required>
+            <div class="button-group">
+                <button type="submit" name="action" value="verify">Verify</button>
+                <button type="submit" name="action" value="sign">Sign</button>
+                <button type="submit" name="action" value="manifest">Show Manifest</button>
+            </div>
         </form>
 
         {% if filename %}
-            <p><strong>Uploaded:</strong> {{ filename }}</p>
+            <div class="filename">📁 Uploaded: {{ filename }}</div>
         {% endif %}
         
         {% if result %}
