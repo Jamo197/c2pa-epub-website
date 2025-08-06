@@ -5,9 +5,15 @@ import mimetypes
 import os
 import shutil
 import zipfile
+from datetime import datetime
 
-from c2pa import Builder, C2paSignerInfo, Reader, Signer
-from flask import Flask, render_template, request
+from c2pa import Builder, C2paSignerInfo, Reader, Signer, get_epub_metadata
+from flask import Flask, render_template, request, send_file
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -121,8 +127,13 @@ def sign_epub(filepath, filename):
                 return "Signed manifest:", active_manifest
 
 
+# Global variable to store the last result for PDF export
+last_result = {"filename": "", "metadata": "", "verify_result": "", "timestamp": ""}
+
+
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
+    global last_result
     if request.method == "POST":
         uploaded_file = request.files.get("file")
         action = request.form.get("action")
@@ -180,12 +191,108 @@ def upload_file():
                             json_result = active_manifest
                 except Exception as err:
                     result = f"Error reading manifest: {str(err)}"
+            elif action == "metadata":
+                if ".epub" not in filename:
+                    result = "Function only works for EPUB files."
+                else:
+                    try:
+                        # Use exposed get_epub_metadata function
+                        metadata = get_epub_metadata(filepath)
+                        result = f"📚 EPUB Metadata for {filename}:\n{json.dumps(metadata, indent=2)}"
+                        last_result["metadata"] = result
+                        last_result["filename"] = filename
+                        last_result["timestamp"] = datetime.now().strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        )
+                    except Exception as err:
+                        result = f"❌ Error reading EPUB metadata: {str(err)}"
             else:
                 result = "Unknown action"
             return render_template(
                 "index.html", filename=filename, result=result, json_result=json_result
             )
     return render_template("index.html")
+
+
+@app.route("/export_pdf")
+def export_pdf():
+    global last_result
+
+    if not last_result.get("metadata") or not last_result.get("verify_result"):
+        return "No data available for PDF export", 400
+
+    # Create PDF filename
+    pdf_filename = f"epub_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
+
+    # Create PDF document
+    doc = SimpleDocTemplate(pdf_path, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title
+    title_style = ParagraphStyle(
+        "CustomTitle",
+        parent=styles["Heading1"],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=1,  # Center alignment
+    )
+    story.append(Paragraph("EPUB C2PA Analysis Report", title_style))
+    story.append(Spacer(1, 20))
+
+    # File information
+    file_info = [
+        ["File Name:", last_result["filename"]],
+        ["Analysis Date:", last_result["timestamp"]],
+    ]
+
+    file_table = Table(file_info, colWidths=[2 * inch, 4 * inch])
+    file_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, -1), colors.grey),
+                ("TEXTCOLOR", (0, 0), (0, -1), colors.whitesmoke),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ("BACKGROUND", (1, 0), (1, -1), colors.beige),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ]
+        )
+    )
+    story.append(file_table)
+    story.append(Spacer(1, 20))
+
+    # Verification Result
+    story.append(Paragraph("Verification Result", styles["Heading2"]))
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(last_result["verify_result"], styles["Normal"]))
+    story.append(Spacer(1, 20))
+
+    # Metadata Result
+    story.append(Paragraph("EPUB Metadata", styles["Heading2"]))
+    story.append(Spacer(1, 10))
+
+    # Format metadata for better display
+    metadata_text = last_result["metadata"].replace(
+        "📚 EPUB Metadata for " + last_result["filename"] + ":\n", ""
+    )
+    metadata_lines = metadata_text.split("\n")
+
+    for line in metadata_lines:
+        if line.strip():
+            # Indent JSON content
+            if line.startswith("  "):
+                story.append(Paragraph(line, styles["Normal"]))
+            else:
+                story.append(Paragraph(line, styles["Normal"]))
+
+    # Build PDF
+    doc.build(story)
+
+    return send_file(pdf_path, as_attachment=True, download_name=pdf_filename)
 
 
 if __name__ == "__main__":

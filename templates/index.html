@@ -35,9 +35,11 @@
             display: flex;
             gap: 1rem;
             margin: 1rem 0;
+            flex-wrap: wrap;
         }
         button {
             flex: 1;
+            min-width: 120px;
             padding: 0.75rem 1rem;
             border: none;
             border-radius: 5px;
@@ -66,6 +68,23 @@
         button[name="action"][value="manifest"]:hover {
             background-color: #e0a800;
         }
+        button[name="action"][value="metadata"] {
+            background-color: #6f42c1;
+            color: white;
+        }
+        button[name="action"][value="metadata"]:hover {
+            background-color: #5a32a3;
+        }
+        .export-button {
+            background-color: #dc3545;
+            color: white;
+            margin-top: 1rem;
+            width: 100%;
+            font-size: 1.1rem;
+        }
+        .export-button:hover {
+            background-color: #c82333;
+        }
         .result {
             margin-top: 2rem;
             padding: 1rem;
@@ -85,17 +104,30 @@
             border-radius: 5px;
             font-weight: bold;
         }
+        .export-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .export-section h3 {
+            color: #155724;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>EPUB C2PA Tool</h1>
+        <h1>📚 EPUB C2PA Tool</h1>
         <form method="post" enctype="multipart/form-data">
             <input type="file" name="file" accept=".epub,.zip,.png" required>
             <div class="button-group">
-                <button type="submit" name="action" value="verify">Verify</button>
-                <button type="submit" name="action" value="sign">Sign</button>
-                <button type="submit" name="action" value="manifest">Show Manifest</button>
+                <button type="submit" name="action" value="verify">🔍 Verify</button>
+                <button type="submit" name="action" value="sign">✍️ Sign</button>
+                <button type="submit" name="action" value="manifest">📋 Show Manifest</button>
+                <button type="submit" name="action" value="metadata">📖 Show Metadata</button>
             </div>
         </form>
 
@@ -107,6 +139,14 @@
             <div class="result">{{ result|safe }}</div>
         {% elif json_result %}
             <div class="result">{{ json_result|tojson(indent=2) }}</div>
+        {% endif %}
+
+        {% if show_export %}
+            <div class="export-section">
+                <h3>📄 PDF Export Available</h3>
+                <p>Both metadata and verification results are available. You can now export a comprehensive PDF report.</p>
+                <a href="{{ url_for('export_pdf') }}" class="export-button" style="display: inline-block; text-decoration: none; padding: 0.75rem 1rem; background-color: #dc3545; color: white; border-radius: 5px; font-weight: bold; transition: background-color 0.3s;">📥 Export PDF Report</a>
+            </div>
         {% endif %}
     </div>
 </body>
