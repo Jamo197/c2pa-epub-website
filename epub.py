@@ -10,7 +10,7 @@ from datetime import datetime
 from c2pa import Builder, C2paSignerInfo, Reader, Signer, get_epub_metadata
 from flask import Flask, render_template, request, send_file
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -127,6 +127,38 @@ def sign_epub(filepath, filename):
                 return "Signed manifest:", active_manifest
 
 
+def verify_epub(filepath, pdf_export=False):
+    with open(filepath, "rb") as stream:
+        with Reader(format_or_path="application/epub+zip", stream=stream) as reader:
+            result = ""
+            manifest_json = reader.json()
+            manifest = json.loads(manifest_json)
+            validation_results = manifest["validation_results"]["activeManifest"]
+            for status in ["success", "informational", "failure"]:
+                if pdf_export:
+                    if status == "success":
+                        result += f"\nStatus {status}:\n"
+                    elif status == "informational":
+                        result += f"\nStatus {status}:\n"
+                    elif status == "failure":
+                        result += f"\nStatus {status}:\n"
+                else:
+                    if status == "success":
+                        result += f"<h3>✅ Status {status}:</h3>"
+                    elif status == "informational":
+                        result += f"<h3>ℹ️ Status {status}:</h3>"
+                    elif status == "failure":
+                        result += f"<h3>❌ Status {status}:</h3>"
+                for i, validation in enumerate(validation_results[status]):
+                    if not validation:
+                        continue
+                    if pdf_export:
+                        result += f"{i + 1}. {validation['code']}: {validation['explanation']}\n"
+                    else:
+                        result += f"{i + 1}. <b>{validation['code']}</b>: {validation['explanation']}<br>"
+    return result
+
+
 # Global variable to store the last result for PDF export
 last_result = {"filename": "", "metadata": "", "verify_result": "", "timestamp": ""}
 
@@ -146,29 +178,7 @@ def upload_file():
             if action == "verify":
                 result = f"Verified {filename}"
                 try:
-                    with open(filepath, "rb") as stream:
-                        with Reader(
-                            format_or_path="application/epub+zip", stream=stream
-                        ) as reader:
-                            result = ""
-                            manifest_json = reader.json()
-                            manifest = json.loads(manifest_json)
-                            validation_results = manifest["validation_results"][
-                                "activeManifest"
-                            ]
-                            for status in ["success", "informational", "failure"]:
-                                if status == "success":
-                                    result += f"<h3>✅ Status {status}:</h3>"
-                                elif status == "informational":
-                                    result += f"<h3>ℹ️ Status {status}:</h3>"
-                                elif status == "failure":
-                                    result += f"<h3>❌ Status {status}:</h3>"
-                                for i, validation in enumerate(
-                                    validation_results[status]
-                                ):
-                                    if not validation:
-                                        continue
-                                    result += f"{i + 1}. <b>{validation['code']}</b>: {validation['explanation']}<br>"
+                    result = verify_epub(filepath)
                 except Exception as err:
                     result = f"Error reading manifest: {str(err)}"
             elif action == "sign":
@@ -204,12 +214,21 @@ def upload_file():
                         last_result["timestamp"] = datetime.now().strftime(
                             "%Y-%m-%d %H:%M:%S"
                         )
+                        last_result["verify_result"] = verify_epub(
+                            filepath, pdf_export=True
+                        )
                     except Exception as err:
                         result = f"❌ Error reading EPUB metadata: {str(err)}"
             else:
                 result = "Unknown action"
             return render_template(
-                "index.html", filename=filename, result=result, json_result=json_result
+                "index.html",
+                filename=filename,
+                result=result,
+                json_result=json_result,
+                show_export=bool(
+                    last_result.get("metadata") and last_result.get("verify_result")
+                ),
             )
     return render_template("index.html")
 
