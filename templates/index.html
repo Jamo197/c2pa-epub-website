@@ -91,7 +91,7 @@
     <div class="container">
         <h1>EPUB C2PA Tool</h1>
         <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".epub" required>
+            <input type="file" name="file" accept=".epub,.zip,.png" required>
             <div class="button-group">
                 <button type="submit" name="action" value="verify">Verify</button>
                 <button type="submit" name="action" value="sign">Sign</button>
@@ -104,7 +104,9 @@
         {% endif %}
         
         {% if result %}
-            <div class="result">{{ result }}</div>
+            <div class="result">{{ result|safe }}</div>
+        {% elif json_result %}
+            <div class="result">{{ json_result|tojson(indent=2) }}</div>
         {% endif %}
     </div>
 </body>
